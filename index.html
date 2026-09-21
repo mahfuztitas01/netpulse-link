@@ -107,6 +107,7 @@
         <button id="d-new">+ Add device</button>
         <button class="ghost" id="d-token-btn">Set GitHub token</button>
         <button class="ghost" id="d-test-btn">Test token</button>
+        <button class="ghost" id="d-clear-btn">Clear token</button>
       </div>
       <div class="err" id="d-token-msg"></div>
       <div class="foot" style="text-align:left">
@@ -122,7 +123,7 @@
 </div>
 
 <script>
-const BLOB = {"salt": "bly9q9+XSpn29VidZx/fTQ==", "iv": "gMw2D8JBreGGmA6V", "ct": "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", "iter": 200000};
+const BLOB = {"salt": "Ka6TjsLGNnGd1TJvZOUnlA==", "iv": "PdEc5N9f3ndCbcs2", "ct": "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", "iter": 200000};
 const S = { salt: b64d(BLOB.salt), iv: b64d(BLOB.iv), ct: b64d(BLOB.ct), iter: BLOB.iter };
 let DATA = null;
 let CFG = null, CFG_SHA = null, REPO = "", BRANCH = "main";
@@ -162,14 +163,19 @@ async function ghExplainError(r){
 }
 
 async function ghTestToken(){
-  if (!ghToken()) return "No token saved yet.";
+  const t = ghToken();
+  if (!t) return "No token saved yet.";
+  const info = "[token: " + (t.length) + " chars, starts '" + t.slice(0, 11) + "...'] ";
+  if (!/^(github_pat_|ghp_|gho_|ghs_|ghu_)/.test(t)) {
+    return info + "That does not look like a GitHub token - it should start with github_pat_ or ghp_.";
+  }
   const r = await ghFetch("https://api.github.com/user");
-  if (!r.ok) return await ghExplainError(r);
+  if (!r.ok) return info + await ghExplainError(r);
   const who = (await r.json()).login;
   const repo = await ghFetch(`https://api.github.com/repos/${REPO}`);
-  if (!repo.ok) return "Signed in as " + who + ", but " + (await ghExplainError(repo));
+  if (!repo.ok) return info + "Signed in as " + who + ", but " + (await ghExplainError(repo));
   const j = await repo.json();
-  return "OK - signed in as " + who + "; can see " + j.full_name +
+  return info + "OK - signed in as " + who + "; " + j.full_name +
          (j.permissions && j.permissions.push ? " (write access)" : " (read only - cannot add devices)");
 }
 
@@ -354,6 +360,13 @@ document.getElementById("d-cancel").addEventListener("click", () => {
 });
 document.getElementById("d-save").addEventListener("click", addDevice);
 document.getElementById("d-token-btn").addEventListener("click", setToken);
+document.getElementById("d-clear-btn").addEventListener("click", () => {
+  localStorage.removeItem("np_gh_token");
+  const m = document.getElementById("d-token-msg");
+  m.textContent = "Token cleared. Tap 'Set GitHub token' to add a new one.";
+  m.className = "ok";
+  render(DATA);
+});
 document.getElementById("d-test-btn").addEventListener("click", async () => {
   const m = document.getElementById("d-token-msg");
   m.textContent = "Testing..."; m.className = "err";
