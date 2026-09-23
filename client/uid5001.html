@@ -51,17 +51,12 @@
   .foot { color:#64748b; font-size:11px; margin-top:14px; line-height:1.6; text-align:center; }
   a { color:#60a5fa; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.15/dist/browser/libsodium.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.15/dist/browser/libsodium-wrappers.js"></script>
 </head>
 <body>
 <div class="wrap">
   <div id="gate" class="gate">
     <h2><span class="dot"></span> <span id="gate-brand">NetPulse</span></h2>
-    <p>Enter your username and password to view live status.</p>
-    <div id="user-wrap" style="display:none">
-      <input id="user" type="text" autocomplete="username" placeholder="Username" />
-    </div>
+    <p>Enter the dashboard password to view live status.</p>
     <input id="pw" type="password" autocomplete="current-password" placeholder="Password" />
     <button id="go" style="width:100%;margin-top:10px">Unlock</button>
     <div class="err" id="err"></div>
@@ -122,25 +117,13 @@
       </div>
     </div>
 
-    <div class="panel">
-      <h3>Manage client logins</h3>
-      <div class="sub" id="client-state"></div>
-      <div id="client-list"></div>
-      <div class="err" id="client-msg"></div>
-      <div class="foot" style="text-align:left">
-        Each client group gets its own read-only page at <code>/client/&lt;group&gt;.html</code>.
-        Set a username + password here; they are stored as GitHub secrets and applied on the next build.
-      </div>
-    </div>
-
     <div class="foot" id="foot"></div>
   </div>
 </div>
 
 <script>
-const BLOB = {"salt": "MUrPDtKSN8IUBOgYpSIPlA==", "iv": "MFMmD6eZR83vt557", "ct": "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", "iter": 200000};
+const BLOB = {"salt": "McmZStSXSSQwfj/tTeWAnA==", "iv": "RKTfABFKRInJN6DJ", "ct": "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", "iter": 200000};
 const READ_ONLY = true;
-const HAS_USER = false;
 const S = { salt: b64d(BLOB.salt), iv: b64d(BLOB.iv), ct: b64d(BLOB.ct), iter: BLOB.iter };
 let DATA = null;
 let CFG = null, CFG_SHA = null, REPO = "", BRANCH = "main";
@@ -278,95 +261,6 @@ function render(d){
     ? '<span class="ok">Device management is ready — add or remove devices below.</span>'
     : 'Device management needs a GitHub token. Tap <b>Set GitHub token</b> once to provide one.';
   document.getElementById("mgmt-actions").style.display = "flex";
-
-  renderClients();
-}
-
-/* ---------------- client login management ---------------- */
-function renderClients(){
-  const groups = Object.keys((d && d.config && d.config.groups) || {});
-  const labels = (d && d.config && d.config.group_labels) || {};
-  const list = document.getElementById("client-list");
-  const st = document.getElementById("client-state");
-  if (!groups.length) {
-    st.innerHTML = "No client groups configured yet.";
-    list.innerHTML = "";
-    return;
-  }
-  st.innerHTML = '<span class="ok">' + groups.length + ' client group(s) found.</span>';
-  list.innerHTML = groups.map(g => {
-    const label = labels[g] || g;
-    const safe = esc(g).replace(/[^A-Za-z0-9_]/g, "_");
-    return '<div class="row" style="margin-top:10px;flex-wrap:wrap">' +
-      '<div style="flex:1;min-width:150px"><label>Client</label><code>' + esc(label) + ' (' + esc(g) + ')</code></div>' +
-      '<input id="c-user-' + safe + '" placeholder="Username" autocomplete="off" />' +
-      '<input id="c-pw-' + safe + '" type="password" placeholder="New password" autocomplete="new-password" />' +
-      '<button class="ghost mini" data-csave="' + esc(g) + '">Save login</button>' +
-      '<button class="ghost mini" data-cdel="' + esc(g) + '">Remove</button>' +
-    '</div>';
-  }).join("");
-  document.querySelectorAll("[data-csave]").forEach(b =>
-    b.addEventListener("click", () => saveClient(b.getAttribute("data-csave"))));
-  document.querySelectorAll("[data-cdel]").forEach(b =>
-    b.addEventListener("click", () => removeClient(b.getAttribute("data-cdel"))));
-}
-
-function secretName(group, kind){
-  return kind + "_" + String(group).toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-}
-
-async function ghGetPublicKey(){
-  const r = await ghFetch(`https://api.github.com/repos/${REPO}/actions/secrets/public-key`);
-  if (!r.ok) throw new Error(await ghExplainError(r));
-  return await r.json();
-}
-
-async function ghSetSecret(name, value){
-  try { await sodium.ready; } catch (e) {}
-  const pk = await ghGetPublicKey();
-  const sealed = sodium.crypto_box_seal(
-    sodium.from_string(value),
-    sodium.from_base64(pk.key, sodium.base64_variants.ORIGINAL)
-  );
-  const enc = sodium.to_base64(sealed, sodium.base64_variants.ORIGINAL);
-  const r = await ghFetch(`https://api.github.com/repos/${REPO}/actions/secrets/${name}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ encrypted_value: enc, key_id: pk.key_id })
-  });
-  if (!r.ok) throw new Error(await ghExplainError(r) + " (token needs 'Secrets: Read and write' permission)");
-}
-
-async function ghDeleteSecret(name){
-  const r = await ghFetch(`https://api.github.com/repos/${REPO}/actions/secrets/${name}`, { method: "DELETE" });
-  if (!r.ok && r.status !== 404) throw new Error(await ghExplainError(r));
-}
-
-async function saveClient(group){
-  const msg = document.getElementById("client-msg");
-  msg.textContent = ""; msg.className = "err";
-  const safe = String(group).toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-  const user = (document.getElementById("c-user-" + safe).value || "").trim();
-  const pw = document.getElementById("c-pw-" + safe).value || "";
-  if (!user || !pw) { msg.textContent = "Enter both a username and a password."; return; }
-  try {
-    await ghSetSecret(secretName(group, "CLIENT_USER"), user);
-    await ghSetSecret(secretName(group, "CLIENT_PW"), pw);
-    msg.className = "ok";
-    msg.textContent = "Saved login for group '" + group + "'. It applies on the next dashboard build (~30s).";
-  } catch (e) { msg.textContent = e.message; }
-}
-
-async function removeClient(group){
-  const msg = document.getElementById("client-msg");
-  msg.textContent = ""; msg.className = "err";
-  if (!confirm('Remove client login for group "' + group + '"?')) return;
-  try {
-    await ghDeleteSecret(secretName(group, "CLIENT_USER"));
-    await ghDeleteSecret(secretName(group, "CLIENT_PW"));
-    msg.className = "ok";
-    msg.textContent = "Removed login for group '" + group + "'.";
-  } catch (e) { msg.textContent = e.message; }
 }
 
 /* ---------------- device actions ---------------- */
@@ -467,17 +361,11 @@ function onTypeChange(){
 
 async function tryUnlock(){
   const pw = document.getElementById("pw").value;
-  const user = document.getElementById("user").value;
   const err = document.getElementById("err");
   const btn = document.getElementById("go");
   err.textContent = ""; btn.disabled = true; btn.textContent = "Checking...";
   try {
     const d = await unlock(pw);
-    if (HAS_USER && user.trim() !== (d.client_user || "")) {
-      err.textContent = "Wrong username or password.";
-      btn.disabled = false; btn.textContent = "Unlock";
-      return;
-    }
     sessionStorage.setItem("np_pw", pw);
     render(d);
   } catch (e) {
@@ -512,7 +400,6 @@ document.getElementById("d-test-btn").addEventListener("click", async () => {
 document.getElementById("d-type").addEventListener("change", onTypeChange);
 
 (async () => {
-  if (HAS_USER) document.getElementById("user-wrap").style.display = "block";
   // One-tap token setup: open .../#token=ghp_xxx and it is stored, then the
   // hash is removed from the address bar and history.
   try {
