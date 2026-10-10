@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0b1020" />
+<title>NetPulse</title>
+<style>
+  :root { color-scheme: dark; --bg:#0b1020; --card:#141a2e; --border:#26304f;
+          --fg:#e6ebf5; --muted:#8a97b5; --up:#22c55e; --down:#ef4444; --warn:#f59e0b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); padding:16px;
+         font-family:"Segoe UI",system-ui,-apple-system,sans-serif; }
+  .wrap { max-width:840px; margin:0 auto; }
+  h1 { font-size:20px; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:#3b82f6; box-shadow:0 0 12px #3b82f6; }
+  .sub { color:var(--muted); font-size:12px; margin-bottom:16px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(92px,1fr)); gap:10px; margin-bottom:16px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; }
+  .card .l { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  .card .v { font-size:22px; font-weight:700; margin-top:4px; }
+  table { width:100%; border-collapse:collapse; background:var(--card);
+          border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  th,td { padding:10px 12px; text-align:left; font-size:13px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  tr:last-child td { border-bottom:none; }
+  .b { display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; }
+  .b.up { background:rgba(34,197,94,.15); color:var(--up); }
+  .b.down { background:rgba(239,68,68,.15); color:var(--down); }
+  .b.unknown { background:rgba(138,151,181,.15); color:var(--muted); }
+  code { color:var(--muted); font-size:12px; }
+  .gate { background:var(--card); border:1px solid var(--border); border-radius:16px;
+          padding:26px 22px; max-width:380px; margin:10vh auto 0; text-align:center; }
+  .gate h2 { margin:0 0 6px; font-size:18px; }
+  .gate p { color:var(--muted); font-size:13px; margin:0 0 16px; }
+  input,select { width:100%; padding:12px; border-radius:10px; border:1px solid var(--border);
+          background:#0e1424; color:var(--fg); font-size:14px; margin-top:4px; }
+  label { color:var(--muted); font-size:12px; display:block; margin-top:10px; }
+  button { padding:12px 16px; border:none; border-radius:10px; background:#3b82f6;
+           color:#fff; font-weight:700; font-size:14px; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--fg); font-weight:600; }
+  button.mini { padding:6px 10px; font-size:12px; }
+  button:disabled { opacity:.55; cursor:default; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .err { color:var(--down); font-size:13px; margin-top:10px; min-height:18px; }
+  .ok { color:var(--up); }
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:14px;
+           padding:16px; margin-top:16px; }
+  .panel h3 { margin:0 0 4px; font-size:15px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .foot { color:#64748b; font-size:11px; margin-top:14px; line-height:1.6; text-align:center; }
+  a { color:#60a5fa; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.15/dist/browser/libsodium.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.15/dist/browser/libsodium-wrappers.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div id="gate" class="gate">
+    <h2><span class="dot"></span> <span id="gate-brand">NetPulse</span></h2>
+    <p>Enter your username and password to view live status.</p>
+    <div id="user-wrap" style="display:none">
+      <input id="user" type="text" autocomplete="username" placeholder="Username" />
+    </div>
+    <input id="pw" type="password" autocomplete="current-password" placeholder="Password" />
+    <button id="go" style="width:100%;margin-top:10px">Unlock</button>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div id="app" style="display:none">
+    <h1><span class="dot"></span> <span id="brand">NetPulse</span></h1>
+    <div class="sub" id="sub"></div>
+
+    <div class="cards" id="cards"></div>
+
+    <table>
+      <thead><tr><th>Device</th><th>Host</th><th>Group</th><th>Status</th><th>Latency</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <div class="panel">
+      <h3>Add / manage devices</h3>
+      <div class="sub" id="mgmt-state"></div>
+
+      <div id="mgmt-form" style="display:none">
+        <div class="grid2">
+          <div><label>Name</label><input id="d-name" placeholder="Core Switch" /></div>
+          <div><label>IP / Hostname</label><input id="d-host" placeholder="host or IP" /></div>
+        </div>
+        <div class="grid2">
+          <div><label>Check type</label>
+            <select id="d-type">
+              <option value="ping">Ping (TCP fallback in cloud)</option>
+              <option value="tcp">TCP port</option>
+              <option value="http">HTTP(S)</option>
+            </select>
+          </div>
+          <div><label>Alert group</label><select id="d-group"></select></div>
+        </div>
+        <div class="grid2">
+          <div id="d-port-wrap"><label>TCP port</label><input id="d-port" type="number" placeholder="443" /></div>
+          <div id="d-url-wrap" style="display:none"><label>HTTP URL</label><input id="d-url" placeholder="https://example.com/" /></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button id="d-save">Add device</button>
+          <button class="ghost" id="d-cancel">Cancel</button>
+        </div>
+        <div class="err" id="d-err"></div>
+      </div>
+
+      <div class="row" id="mgmt-actions">
+        <button id="d-new">+ Add device</button>
+        <button class="ghost" id="d-token-btn">Set GitHub token</button>
+        <button class="ghost" id="d-test-btn">Test token</button>
+        <button class="ghost" id="d-clear-btn">Clear token</button>
+      </div>
+      <div class="err" id="d-token-msg"></div>
+      <div class="foot" style="text-align:left">
+        Changes are saved to <code>cloud/config.json</code> on GitHub and take effect
+        on the next scheduled check (within ~15 minutes).<br>
+        Tip: you can type <code>host:port</code> in the Host box and it is saved as a TCP check automatically.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Manage client logins</h3>
+      <div class="sub" id="client-state"></div>
+      <div id="client-list"></div>
+      <div class="err" id="client-msg"></div>
+      <div class="foot" style="text-align:left">
+        Each client group gets its own read-only page at <code>/client/&lt;group&gt;.html</code>.
+        Set a username + password here; they are stored as GitHub secrets and applied on the next build.
+      </div>
+    </div>
+
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<script>
+const BLOB = {"salt": "WPObbQUXiiVA6JMILnfVgQ==", "iv": "63nsK3aInHgtb3xy", "ct": "t3h2LqMvYQWlSknFfaO7EVftktekwZMevf/KZ7PyBrwqaLmSKs2h4Ny+BsJ5rrrAUyfKDAnbFEqkmaBaTVjAlPF3CF1dxsVT++adVgOT7CcUqlum7dGBaK54oSgOPioYW4Z7uvwB4HhIHkZjuwGbvxDJONjlWPvFuqpdnDPORKb+WTGLJ6/Ev8a2u13Ql78m1267xs+Ay0BSsBNu92dYVEubZZhCGEYeR/7DekLM7DUvF5OFBDRilT85njK2S3hHVuubWj9aYbwg5pMFeGS5WD8ueLikM4aQjUTbq8k9QSHXM5OIZ5EYY+1sH6Oqh+QWAY3r1GQkt75aWrJmKF54YBMhu42R/MjZ2K7JdJF9lly1u6Acun11sPGnmlcsJYZpApiYj/mpTCyji/R+vWkj7gSb4Jfexrfj5yyfMh6SyGm2WrF6dDaF+cOJ+1MFtgalHHS/qhWhZ/hiRaR2tjKIET7X8H+lc1k/eaE73dF7UNXOMRmYnxikfHvUkagmHzwsdotUyKz4CyRxeljjlY0DYXwqAnRKg4olahHYxawK7hmiZrdQ1mbYhePegweBpqGPLTAa2BY3xdJ59Mgccgr/jrBC1x4i2GNwePoRQC1JNigv+OZcBYCQtjm4X6Da7Z2IP6rgLCkUF5ccfTQARxOULnXFE0mH1jK1ZiRjHmR4CN7v8TTVwTjXvFiGKIKMbfPTvWHQTHD63X0eMRYivYoedv3+NvbdWCSotat3BsKhcEBgf+Nv1gM6xG/8YC19TsKGNiAGNPhF+7a4hx4eqObvQFLLe2uwh2ZzAvdOJrTW8Ggqw6ruaW6sD9c+sI/+IPY/Ugx3ZvLD1w4QnAlIUoym2Y1bwlqIIXd8ay8A4d7a5FLmfTJhyT/tGmaLfnWuvq2QcL8QfNyjC90HCNeUjCYa7e0o02n7GKOr+zet2IMyYv74Blop78SKOt5DJujwiNjtvHF+6/KEc38x7FqgHWr8nzFLnYG7Kjj9T7UIOgfUlzJGqpcODNWJ6/wACBGhyri3KQ3BTsy+ovPQ2K+Z46Oc+qgmSeTC//r8l7QPsfSINQg0CQJ7eRAz/Ip0o7xUoa8SKQ9EoDJbGbY5CWbW03Tn1x7gVSs4BwbGk4fXnQ6md8oJnN2d8wLpNDC9B8JfetR4u7NvU+MGrlitofSivkpOIaZOwC/BgoYFI1Dhbn/WQDvSz4MwN26NqdNfXxaPwslFQ44KClbi7QthH8RTMYifZsRCsUKnykLI3k2D8dETH8ayV7p9eQlUabjcnwgNTmtMIdvgPmKHz1l46ORV9ot9CPNWDPLxx/Br1trRTmH0srt8RzTH8NiYbzEQLo2G1k6EEm+bSkqtJ3YZts58LG6ltWgrVJGZ/ZiXECjumNFMxoaDxlka9q0oAjKXDNbIxDJvBAJqsvCovZ0W7rj0eswC708zbXi20gjnWvkzrl2jl5JVekNzXVnlUrbeCNLcLS8/l67/1o8/KGCgo5JsDita4G3npqtIBjDuzJ/uOsFkXNQ1M2nhI8tF74pQ0dsSzUVrZ+xOEbyyH2WgqKAlGFHlY1NTxeCP6tabNwDynUi5RPdquZgyqmYKBfCETmGLo4qjpBWheWaKxLGjxADHI5Xs25CCXqLoUu6R/uzogQ05XoxuzdvApzHLgVPO3DvRyBGZZlGrguMgke3djMGbsRlLBkBkE23jPeQAeQ2Aw8rau+lD6qJN0La67vuJqxVEWJpchCkEtwYqbOw7DHuXA8xDqyp4DxYDD44vn5QzzbcbvanjEzj6ew0lo6QCrV8MjYrSz+HBOS3Yo1PjAJJz+MUTzYbqAx0/8KIKITPX5/J02tcIPcwY9iYQ7fdzFRKakheK0eyAwY1whpsq+JfhRP3rjYIPwfNVVYgwIV6pf6vn9SF0woMOxPoo1HVLaiK9yhUi1Sqf3PJBfVJo1ZmmaTJeaKzJ++aLXTta1xy1O/B+i0vmAleR11gfUP8fqk1N4mdwG8AWx4cRPQxyywvXTcbXZqgxBu3nvqviG7BahC24D9EFZGAlTLRzGHGTaqQGyWAMA2w8Gd6Ir8oOCh2bPc6dikKecwJzwrwQ4JJ3qEuZNfqEtGbs8L6ZOl43Mq7W6PCK+n67vSAAmcBtcwiPz3uLUzjJo0HPMAUHKbg32xh4fnxEx8fdID8cKxpb1bfIF87GGUxwHBdGFxpUQB52rqR22xur6XkdimkK7D+GCnw1fMvilNRE0B5YHL3T1br/VIfhsw7Bsm+QlALmoIqIH2tU2+2yj0UBf5VBudexof0z6gB8nSwLRInbiMfuSvqR8pJgCtp65LOkt8IKZ8oePsuU1GqO741zHxZx4VS1YgWhaoCgDyIsoSk0y+LowKZmC1yHTUUS+BE9Z6Nj6Z5f0eRjH+BOUevlNOPi7Hmk9xinqqM19gQ0FJG4OEOSLf/LBSQkGzTxK+TrCsj8NID0IdJM2sMj6t9EmUv5aRh+yJl66AqG8faucnwDYc4peMJX/n5eHmU/8ACe7Uv1Fhwyzkn4OEQdllwOq8YWY8Wtq3LqQnEEhtPPPvsz/IQFx8B1tjPRLipEiMfo9HQZnVd/TJh9B9GL6SNJimjr6h1F9RZk1xOPe9VmS/TpeseBDK5bNCFIjL4Gmx4vNirqze3J8feAOSajFUVWIw8der+PR5U0nU5yRs7+ysA0SP0wEdBfITScIl6hz+kjZqbBcymrS8A0L8paVAG1EKU6/P2P6MEZ9GgGmPYc2ifC7h+kd7KUBegKXcvN5PKRvwbe9xNA8AJG8okJiRMDoeqUMeHm4S1sV3Y4fGzaIdf1NhYWbkcJUCbj9XxSSBsKnkQIVorxt9WMLlqFwhb/TpKitDi1P9MPsuv1Sp8jds8EhYWonpkF8SruahyhhWx+LLythRpCxkCWP4J2YIdGnw6e3/tlPbssq+7YaK6gtf5ZC8ZLI5s5TrzmbMO3z48HEUtA0rhEF9JgZj9SEEzJZpKRynZ91PpzU2yFkQthOdh8z2WCIiCvCas2rUZgt7266l1XLajs5Wct3ofrwKsVqpYH8JhKYKotkh4dzACXLXUFjwrpiKwIt+O8CiKX7MuGHS1L5OYQloMDRKZaqg2FqqpxGLkNypVyDK4NTBE39E5yJG72v1kuduJti7iPb12QHrvfnGhouAPQNItLxy+TrI6TMxM6khQ6BB0/Ej7BG6JVvKwlUnqOGq1icvl0AQPLX22ngfCfEZpY7sEOKmXbHq+Z3xbZkSqifeW0YrXJ8e3hT2RD87VyyVwJcEKoSh2uuneQpV+LCZYYMt+wKKGlz5cZDszS3/nbhHUzM8PeB9rnBU1mmnjoNUBlFfWRi6bDCVi/+aeWxXa6S0AvLL2GJROu//F6RJx9Yoe5bx99q7ZOjADScKOavW/LRWH45VEYEnw+eMEnyzWdWhk6C+etj6spUI6nTwR2ySnfvSyunLLaEgdiVbPmh/hNtg67W5ptwJA/sP7AEyZvaxEuyRuatyHcSpeF3PbCCacjlHId46NDI/By3p+mw3ZYN30f3Zin+v93Sgfwl/kyui/xWFc2TNMRkhlNaY87t20yMp3lvOsG8YD+06wNVZG8H1PCpO3lO1xqknC5HA1pl5mrDNk4xoAJHQgnDBsuXGTmiP6xg9UB2ESzsGdQ75bK/I/2y0+vIdK6Jkcto65vzJl8MvU/IlRDh8r+9Do2xaNTgQ9G5q61QfGSnT3rfmaAvTcTblikplEY7udAlFqCGPROFJqBUl6j8gZCIF01rWjEO01jgOFypKyVHOz18awzq349Ovt0bK95MbsViE3NrxuHDlxdSbeJ5FUW2/JEJR2fXYQL6doYW8ydUTWS8qayQGD0ZpfpXEjxTKphv/zaKl4nGKuLjYPJWmwP+XwKYH4moWmF24OChdOup4woeXuOiX87EKYVdwCaDoZaez6l1/I+39b9VHIYuRq05pu9p2Fy2QtWNv9SHDmlWoNULUoZy/27Jw0d5FPYQncONfXEwCzI5y0cpw3Yr59U79ZmAptI0jMvmu8qN4sRd4PyB1azObrM0oVJDOYq/QiX3yA96c6WrJEKYmHxg8yQJ4oBUAz350yn6xZkLtfkX35MI5hacWlFUQY1PZYlJPRFcXTr5BlcMW0LmRK4grWc3iiuS/EAjGF8f2RtlR39YA8GBlw8/bsbNLJ+z7202JBjrBacqrz3DWHxV76p0omYJRa3LB7yjMFCmOesyf0WxMcFwV02Ior89HAKdXE4NMmb1mI+XPghNn1FwAJrUfDaSRatW2P9+nzBaqTXY8CBvyuqn7ccCMjwE5l/4QJzzhdmKo9zHGFwqhtBkyeuBGWMf5KZB4WzwW4jHMi2EX43r5gMnjO39DCeYM9/RN8JRzeP7PI5+CRGceYOEyCHtj7L6QZiHNXcuT2BmNbjL1VbS91fx/Og45aAMDJ+A0W0nqHO+ClVe3686tAKViEMMsRYL/jG+kxKYAjb6Atp+RycTqPS1HTKCYUjuMkm7lpgTygtLpbiwab8brAB0ahiIT3mtkEj4YVeX8u4TAR7ovP+DABrlvOArxkFsoYpXok+bVQAu3B1R0w6g+IwG/pGK+bNSKhHJVmixXxNkVNejVmHdfMSe43cbk4LQajovhJZgQLwkmjCWRlVmMGukALboL4sax9stcR4nwAa+ghnCmWLnmPk1lrmNl+H142w6qfviQZ2AvEEEE51bNikiohxHQghzklTWnduve94nSgGl2RrKt6M18sByJ1c6HcNHnrHCsWLIaNB3QaK91gVQrUnr32HbI/HwkD+MjYw1GTCERCG4e/4RX9OR6R0hfi9w/Kd7djZPvcm1eSRmcbGBHDPK4++tmcqisHEdl5PDypXndNv3xQ4nK8NF1eZQnOq7GLbOIGNC28gMIuljmIa0lxFS7tEwCt1nfcNdmpW7zaDOiaBR27bPGAtxIGaQnlMzcg8zgOflVP9LZlYDglgNNhoyEuQ+zE24W2kUUNrjO2ruVCLYG1bJW5yJckFGElNKk0iWaaBuWGUI66koNUqXA5LR8dIFxiFKYPrRhvGU1jIoSRWsYDPe8f8iIRl+YWpm/atszKvpfTnz0ZVyiZvHOd1W5xYeiArK15jSOwJrvWkySQJP0XKl2LqmrHJB9Aq/RdFau5Ukp77b+P7wD5fMqqMFRwDkg==", "iter": 200000};
+const READ_ONLY = false;
+const HAS_USER = false;
+const S = { salt: b64d(BLOB.salt), iv: b64d(BLOB.iv), ct: b64d(BLOB.ct), iter: BLOB.iter };
+let DATA = null;
+let CFG = null, CFG_SHA = null, REPO = "", BRANCH = "main";
+
+function b64d(s){ const b=atob(s); const a=new Uint8Array(b.length); for(let i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return a; }
+function b64e(s){ return btoa(unescape(encodeURIComponent(s))); }
+function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function fmtLat(v){ return v==null ? "—" : Number(v).toFixed(1)+" ms"; }
+function fmtT(v){ if(!v) return "—"; const d=new Date(v); return isNaN(d)?"—":d.toLocaleString(); }
+
+async function unlock(pw){
+  const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey(
+    { name:"PBKDF2", salt:S.salt, iterations:S.iter, hash:"SHA-256" },
+    km, { name:"AES-GCM", length:256 }, false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({ name:"AES-GCM", iv:S.iv }, key, S.ct);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/* ---------------- GitHub API (device management) ---------------- */
+/* The token arrives inside the encrypted payload, so no manual entry is
+   needed. A value typed into localStorage still wins, which lets you
+   override it without rebuilding the page. */
+let EMBEDDED_TOKEN = "";
+
+function ghToken(){
+  const manual = (localStorage.getItem("np_gh_token") || "").trim();
+  return manual || EMBEDDED_TOKEN;
+}
+
+async function ghFetch(url, opts){
+  const r = await fetch(url, Object.assign({
+    headers: { Authorization: "Bearer " + ghToken(), Accept: "application/vnd.github+json" }
+  }, opts || {}));
+  return r;
+}
+
+async function ghExplainError(r){
+  let msg = "";
+  try { msg = (await r.json()).message || ""; } catch (e) {}
+  if (r.status === 401) return "Token rejected (401). " + (msg || "The token is wrong, expired, or was never saved.");
+  if (r.status === 403) return "Token lacks permission (403). " + (msg || "For a fine-grained token set Contents: Read and write and select the netpulse repository.");
+  if (r.status === 404) return "Not found (404). " + (msg || "The token probably cannot see this repository - check that netpulse is selected under Repository access.");
+  return "GitHub error " + r.status + ": " + msg;
+}
+
+async function ghTestToken(){
+  const t = ghToken();
+  if (!t) return "No token saved yet.";
+  const info = "[token: " + (t.length) + " chars, starts '" + t.slice(0, 11) + "...'] ";
+  if (!/^(github_pat_|ghp_|gho_|ghs_|ghu_)/.test(t)) {
+    return info + "That does not look like a GitHub token - it should start with github_pat_ or ghp_.";
+  }
+  const r = await ghFetch("https://api.github.com/user");
+  if (!r.ok) return info + await ghExplainError(r);
+  const who = (await r.json()).login;
+  const repo = await ghFetch(`https://api.github.com/repos/${REPO}`);
+  if (!repo.ok) return info + "Signed in as " + who + ", but " + (await ghExplainError(repo));
+  const j = await repo.json();
+  return info + "OK - signed in as " + who + "; " + j.full_name +
+         (j.permissions && j.permissions.push ? " (write access)" : " (read only - cannot add devices)");
+}
+
+async function ghGetConfig(){
+  const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/cloud/config.json?ref=${BRANCH}`);
+  if (!r.ok) throw new Error(await ghExplainError(r));
+  const j = await r.json();
+  CFG_SHA = j.sha;
+  CFG = JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g, "")))));
+  return CFG;
+}
+
+async function ghSaveConfig(message){
+  const body = {
+    message,
+    content: b64e(JSON.stringify(CFG, null, 2)),
+    sha: CFG_SHA,
+    branch: BRANCH,
+  };
+  const r = await ghFetch(`https://api.github.com/repos/${REPO}/contents/cloud/config.json`, {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + ghToken(), Accept: "application/vnd.github+json",
+               "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await ghExplainError(r));
+  const j = await r.json();
+  CFG_SHA = j.content && j.content.sha ? j.content.sha : CFG_SHA;
+}
+
+/* ---------------- rendering ---------------- */
+function render(d){
+  DATA = d; REPO = d.repo || ""; BRANCH = d.branch || "main";
+  EMBEDDED_TOKEN = (d.gh_token || "").trim();
+  if (d.brand) document.getElementById("brand").textContent = d.brand;
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  document.getElementById("sub").textContent =
+    "Last check: " + fmtT(d.state_updated_at) + "  ·  Page built: " + fmtT(d.generated_at);
+  document.getElementById("cards").innerHTML = [
+    ["Total", d.total, "var(--fg)"], ["Up", d.up, "var(--up)"],
+    ["Down", d.down, "var(--down)"], ["Unknown", d.unknown, "var(--muted)"],
+  ].map(([l,v,c])=>`<div class="card"><div class="l">${l}</div><div class="v" style="color:${c}">${v}</div></div>`).join("");
+
+  document.getElementById("rows").innerHTML = (d.devices||[]).map(x=>`
+    <tr>
+      <td>${esc(x.name)}<div style="color:var(--muted);font-size:11px">${esc(x.checks)}</div></td>
+      <td><code>${esc(x.host)}</code></td>
+      <td>${esc(x.group_label || x.group)}</td>
+      <td><span class="b ${esc(x.status)}">${esc(String(x.status).toUpperCase())}</span></td>
+      <td>${fmtLat(x.latency)}</td>
+      <td>${READ_ONLY ? "" : `<button class="ghost mini" data-del="${esc(x.name)}">✕</button>`}</td>
+    </tr>`).join("");
+
+  const groups = Object.keys((d.config && d.config.groups) || {});
+  const labels = (d.config && d.config.group_labels) || {};
+  const opts = groups.map(g => ({ v: g, t: labels[g] || g }));
+  opts.push({ v: "default", t: "Default (your personal chat)" });
+  document.getElementById("d-group").innerHTML =
+    opts.map(o => `<option value="${esc(o.v)}">${esc(o.t)}</option>`).join("");
+
+  document.getElementById("foot").innerHTML = READ_ONLY
+    ? "Live status, updated automatically.<br>Refresh this page for the latest check."
+    : "Updated automatically by GitHub Actions.<br>Refresh this page for the latest check.";
+
+  // clients get a read-only view: no add/remove panel
+  const panel = document.querySelector(".panel");
+  if (panel) panel.style.display = READ_ONLY ? "none" : "block";
+
+  document.querySelectorAll("[data-del]").forEach(b =>
+    b.addEventListener("click", () => removeDevice(b.getAttribute("data-del"))));
+
+  const has = !!ghToken();
+  document.getElementById("mgmt-state").innerHTML = has
+    ? '<span class="ok">Device management is ready — add or remove devices below.</span>'
+    : 'Device management needs a GitHub token. Tap <b>Set GitHub token</b> once to provide one.';
+  document.getElementById("mgmt-actions").style.display = "flex";
+
+  renderClients();
+}
+
+/* ---------------- client login management ---------------- */
+function renderClients(){
+  const groups = Object.keys((d && d.config && d.config.groups) || {});
+  const labels = (d && d.config && d.config.group_labels) || {};
+  const list = document.getElementById("client-list");
+  const st = document.getElementById("client-state");
+  if (!groups.length) {
+    st.innerHTML = "No client groups configured yet.";
+    list.innerHTML = "";
+    return;
+  }
+  st.innerHTML = '<span class="ok">' + groups.length + ' client group(s) found.</span>';
+  list.innerHTML = groups.map(g => {
+    const label = labels[g] || g;
+    const safe = esc(g).replace(/[^A-Za-z0-9_]/g, "_");
+    return '<div class="row" style="margin-top:10px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:150px"><label>Client</label><code>' + esc(label) + ' (' + esc(g) + ')</code></div>' +
+      '<input id="c-user-' + safe + '" placeholder="Username" autocomplete="off" />' +
+      '<input id="c-pw-' + safe + '" type="password" placeholder="New password" autocomplete="new-password" />' +
+      '<button class="ghost mini" data-csave="' + esc(g) + '">Save login</button>' +
+      '<button class="ghost mini" data-cdel="' + esc(g) + '">Remove</button>' +
+    '</div>';
+  }).join("");
+  document.querySelectorAll("[data-csave]").forEach(b =>
+    b.addEventListener("click", () => saveClient(b.getAttribute("data-csave"))));
+  document.querySelectorAll("[data-cdel]").forEach(b =>
+    b.addEventListener("click", () => removeClient(b.getAttribute("data-cdel"))));
+}
+
+function secretName(group, kind){
+  return kind + "_" + String(group).toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+}
+
+async function ghGetPublicKey(){
+  const r = await ghFetch(`https://api.github.com/repos/${REPO}/actions/secrets/public-key`);
+  if (!r.ok) throw new Error(await ghExplainError(r));
+  return await r.json();
+}
+
+async function ghSetSecret(name, value){
+  try { await sodium.ready; } catch (e) {}
+  const pk = await ghGetPublicKey();
+  const sealed = sodium.crypto_box_seal(
+    sodium.from_string(value),
+    sodium.from_base64(pk.key, sodium.base64_variants.ORIGINAL)
+  );
+  const enc = sodium.to_base64(sealed, sodium.base64_variants.ORIGINAL);
+  const r = await ghFetch(`https://api.github.com/repos/${REPO}/actions/secrets/${name}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ encrypted_value: enc, key_id: pk.key_id })
+  });
+  if (!r.ok) throw new Error(await ghExplainError(r) + " (token needs 'Secrets: Read and write' permission)");
+}
+
+async function ghDeleteSecret(name){
+  const r = await ghFetch(`https://api.github.com/repos/${REPO}/actions/secrets/${name}`, { method: "DELETE" });
+  if (!r.ok && r.status !== 404) throw new Error(await ghExplainError(r));
+}
+
+async function saveClient(group){
+  const msg = document.getElementById("client-msg");
+  msg.textContent = ""; msg.className = "err";
+  const safe = String(group).toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+  const user = (document.getElementById("c-user-" + safe).value || "").trim();
+  const pw = document.getElementById("c-pw-" + safe).value || "";
+  if (!user || !pw) { msg.textContent = "Enter both a username and a password."; return; }
+  try {
+    await ghSetSecret(secretName(group, "CLIENT_USER"), user);
+    await ghSetSecret(secretName(group, "CLIENT_PW"), pw);
+    msg.className = "ok";
+    msg.textContent = "Saved login for group '" + group + "'. It applies on the next dashboard build (~30s).";
+  } catch (e) { msg.textContent = e.message; }
+}
+
+async function removeClient(group){
+  const msg = document.getElementById("client-msg");
+  msg.textContent = ""; msg.className = "err";
+  if (!confirm('Remove client login for group "' + group + '"?')) return;
+  try {
+    await ghDeleteSecret(secretName(group, "CLIENT_USER"));
+    await ghDeleteSecret(secretName(group, "CLIENT_PW"));
+    msg.className = "ok";
+    msg.textContent = "Removed login for group '" + group + "'.";
+  } catch (e) { msg.textContent = e.message; }
+}
+
+/* ---------------- device actions ---------------- */
+async function addDevice(){
+  const err = document.getElementById("d-err");
+  err.textContent = "";
+  let name = document.getElementById("d-name").value.trim();
+  let host = document.getElementById("d-host").value.trim();
+  const type = document.getElementById("d-type").value;
+  const group = document.getElementById("d-group").value;
+  if (!name || !host) { err.textContent = "Name and host are required."; return; }
+
+  // Accept "host:port" in the host box and turn it into a TCP check.
+  let effectiveType = type;
+  const params = {};
+  const m = host.match(/^(.+?):(\d{1,5})$/);
+  if (m) {
+    host = m[1];
+    params.port = Number(m[2]);
+    effectiveType = "tcp";
+  }
+  if (effectiveType === "tcp" && !params.port) {
+    params.port = Number(document.getElementById("d-port").value || 443);
+  }
+  if (effectiveType === "http") {
+    params.url = document.getElementById("d-url").value.trim() || ("https://" + host + "/");
+  }
+  if (/^(10\.|192\.168\.|127\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) {
+    err.textContent = "That is a private address - GitHub runners cannot reach it.";
+    return;
+  }
+
+  try {
+    await ghGetConfig();
+    CFG.devices = CFG.devices || [];
+    if (CFG.devices.some(x => (x.name||"").toLowerCase() === name.toLowerCase())) {
+      err.textContent = "A device with that name already exists.";
+      return;
+    }
+    CFG.devices.push({ name, host, alert_group: group, timeout_seconds: 5,
+                       checks: [{ type: effectiveType, params }] });
+    await ghSaveConfig("feat(cloud): add device " + name);
+    document.getElementById("mgmt-form").style.display = "none";
+    err.textContent = "";
+    alert("Saved as a " + effectiveType.toUpperCase() + " check on " + host +
+          (params.port ? ":" + params.port : "") +
+          ".\nIt starts being checked within ~15 minutes.");
+  } catch (e) { err.textContent = e.message; }
+}
+
+async function removeDevice(name){
+  if (!confirm('Remove device "' + name + '" from cloud monitoring?')) return;
+  try {
+    // GitHub's contents API can serve a slightly stale copy right after a
+    // write, so retry the lookup a couple of times before giving up.
+    let found = false;
+    for (let attempt = 0; attempt < 3 && !found; attempt++) {
+      if (attempt) await new Promise(r => setTimeout(r, 2500));
+      await ghGetConfig();
+      const before = (CFG.devices || []).length;
+      CFG.devices = (CFG.devices || []).filter(x => (x.name || "") !== name);
+      found = CFG.devices.length !== before;
+    }
+    if (!found) { alert("Device not found - refresh the page and try again."); return; }
+    await ghSaveConfig("chore(cloud): remove device " + name);
+    alert("Removed. Refresh in a moment to see the updated list.");
+  } catch (e) { alert(e.message); }
+}
+
+async function setToken(){
+  const cur = ghToken();
+  const t = prompt(
+    "Paste a GitHub token with Contents: Read and write on " + REPO + "\n\n" +
+    "Create one at: github.com/settings/personal-access-tokens/new\n" +
+    "  Repository access -> Only select repositories -> " + REPO + "\n" +
+    "  Permissions -> Contents -> Read and write\n\n" +
+    "(stored only in this browser; leave empty to remove)",
+    cur ? "(a token is already saved - paste a new one to replace)" : ""
+  );
+  if (t === null) return;
+  const v = t.trim();
+  if (!v || v.startsWith("(")) { if (cur) localStorage.setItem("np_gh_token", cur); return; }
+  localStorage.setItem("np_gh_token", v);
+  const err = document.getElementById("d-err");
+  err.textContent = "Testing token...";
+  const res = await ghTestToken();
+  err.textContent = res;
+  err.className = res.startsWith("OK") ? "ok" : "err";
+  render(DATA);
+}
+
+/* ---------------- wiring ---------------- */
+function onTypeChange(){
+  const t = document.getElementById("d-type").value;
+  document.getElementById("d-port-wrap").style.display = t === "tcp" ? "block" : "none";
+  document.getElementById("d-url-wrap").style.display = t === "http" ? "block" : "none";
+}
+
+async function tryUnlock(){
+  const pw = document.getElementById("pw").value;
+  const user = document.getElementById("user").value;
+  const err = document.getElementById("err");
+  const btn = document.getElementById("go");
+  err.textContent = ""; btn.disabled = true; btn.textContent = "Checking...";
+  try {
+    const d = await unlock(pw);
+    if (HAS_USER && user.trim() !== (d.client_user || "")) {
+      err.textContent = "Wrong username or password.";
+      btn.disabled = false; btn.textContent = "Unlock";
+      return;
+    }
+    sessionStorage.setItem("np_pw", pw);
+    render(d);
+  } catch (e) {
+    err.textContent = "Wrong password (or corrupt data).";
+    btn.disabled = false; btn.textContent = "Unlock";
+  }
+}
+
+document.getElementById("go").addEventListener("click", tryUnlock);
+document.getElementById("pw").addEventListener("keydown", e => { if (e.key === "Enter") tryUnlock(); });
+document.getElementById("d-new").addEventListener("click", () => {
+  document.getElementById("mgmt-form").style.display = "block"; onTypeChange();
+});
+document.getElementById("d-cancel").addEventListener("click", () => {
+  document.getElementById("mgmt-form").style.display = "none";
+});
+document.getElementById("d-save").addEventListener("click", addDevice);
+document.getElementById("d-token-btn").addEventListener("click", setToken);
+document.getElementById("d-clear-btn").addEventListener("click", () => {
+  localStorage.removeItem("np_gh_token");
+  const m = document.getElementById("d-token-msg");
+  m.textContent = "Token cleared. Tap 'Set GitHub token' to add a new one.";
+  m.className = "ok";
+  render(DATA);
+});
+document.getElementById("d-test-btn").addEventListener("click", async () => {
+  const m = document.getElementById("d-token-msg");
+  m.textContent = "Testing..."; m.className = "err";
+  const res = await ghTestToken();
+  m.textContent = res; m.className = res.startsWith("OK") ? "ok" : "err";
+});
+document.getElementById("d-type").addEventListener("change", onTypeChange);
+
+(async () => {
+  if (HAS_USER) document.getElementById("user-wrap").style.display = "block";
+  // One-tap token setup: open .../#token=ghp_xxx and it is stored, then the
+  // hash is removed from the address bar and history.
+  try {
+    const m = (location.hash || "").match(/[#&]token=([^&]+)/);
+    if (m) {
+      localStorage.setItem("np_gh_token", decodeURIComponent(m[1]).trim());
+      history.replaceState(null, "", location.pathname + location.search);
+      alert("GitHub token saved in this browser. You can now add devices.");
+    }
+  } catch (e) {}
+
+  const saved = sessionStorage.getItem("np_pw");
+  if (saved) { try { render(await unlock(saved)); return; } catch (e) {} }
+  document.getElementById("pw").focus();
+})();
+</script>
+</body>
+</html>
